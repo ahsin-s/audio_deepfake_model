@@ -2,15 +2,15 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data.dataloader import DataLoader
 import torch.optim as optim
-from data import PrepAudioDataset
+from data import PrepAudioDataset, handle_bad_samples_collate_fn
 import models
 import os
 import sys
 import time
 import numpy as np
 import pandas as pd
-import tqdm
-import argparse 
+import argparse
+import traceback
 
 
 def get_args():
@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     train_set = PrepAudioDataset(source_directory, labels_filepath, label_column_name, filename_column_name, real_label, fake_label)
     weights = train_set.get_weights().to(device)  # weight used for WCE
-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4)
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=handle_bad_samples_collate_fn)
 
     Net = models.SSDNet1D()   # Res-TSSDNet
     Net = Net.to(device)
@@ -84,32 +84,36 @@ if __name__ == '__main__':
         counter = 0
         print(f"Epoch {epoch} of {num_epoch}")
         for batch in train_loader:
-            counter += 1
-            # forward
-            samples, labels = batch
-            samples = samples.to(device)
-            labels = labels.to(device)
+            try:
+                counter += 1
+                # forward
+                samples, labels = batch
+                samples = samples.to(device)
+                labels = labels.to(device)
 
-            optimizer.zero_grad()
+                optimizer.zero_grad()
 
-            if loss_type == 'mixup':
-                # mixup
-                alpha = 0.1
-                lam = np.random.beta(alpha, alpha)
-                lam = torch.tensor(lam, requires_grad=False)
-                index = torch.randperm(len(labels))
-                samples = lam*samples + (1-lam)*samples[index, :]
-                preds = Net(samples)
-                labels_b = labels[index]
-                loss = lam * F.cross_entropy(preds, labels) + (1 - lam) * F.cross_entropy(preds, labels_b)
-            else:
-                preds = Net(samples)
-                loss = F.cross_entropy(preds, labels, weight=weights)
+                if loss_type == 'mixup':
+                    # mixup
+                    alpha = 0.1
+                    lam = np.random.beta(alpha, alpha)
+                    lam = torch.tensor(lam, requires_grad=False)
+                    index = torch.randperm(len(labels))
+                    samples = lam*samples + (1-lam)*samples[index, :]
+                    preds = Net(samples)
+                    labels_b = labels[index]
+                    loss = lam * F.cross_entropy(preds, labels) + (1 - lam) * F.cross_entropy(preds, labels_b)
+                else:
+                    preds = Net(samples)
+                    loss = F.cross_entropy(preds, labels, weight=weights)
 
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-            print(f"Processed batch {counter}")
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item()
+            except Exception as e:
+                print(e)
+                traceback.format_exc()
+            print(f"Processed batch {counter} ; loss: {loss.item()}")
 
         loss_per_epoch[epoch] = total_loss/counter
 

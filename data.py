@@ -4,6 +4,17 @@ from torch.utils.data.dataloader import Dataset
 import soundfile as sf
 import os
 
+
+def handle_bad_samples_collate_fn(batch):
+    # Filter out None values (missing samples)
+    batch = [item for item in batch if item[0] is not None]
+    if not batch:
+        return None 
+    tensors = [item[0] for item in batch]
+    labels = torch.tensor([item[1] for item in batch])
+    return torch.stack(tensors), labels
+
+
 class PrepAudioDataset(Dataset):
     def __init__(self, 
         root_path, 
@@ -36,7 +47,7 @@ class PrepAudioDataset(Dataset):
             sample, _ = sf.read(data_path)
             sample = torch.tensor(sample, dtype=torch.float32)
         else:
-            sample = torch.tensor([0, 0])
+            return None, label
         sample = torch.unsqueeze(sample, 0)
         return sample, label 
 
