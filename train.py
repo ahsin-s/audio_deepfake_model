@@ -61,7 +61,8 @@ if __name__ == '__main__':
     optimizer = optim.Adam(Net.parameters(), lr=0.001)
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
     loss_type = 'WCE'  # {'WCE', 'mixup'}
-
+    
+    data_type="timeframe"
     print('Training data: {}, Date type: {}.'.format(train_data_path, data_type))
 
     num_epoch = 100
@@ -106,48 +107,27 @@ if __name__ == '__main__':
             else:
                 preds = Net(samples)
                 loss = F.cross_entropy(preds, labels, weight=weights)
-                # loss = F.cross_entropy(preds, labels)
 
-            # backward
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
 
         loss_per_epoch[epoch] = total_loss/counter
 
-        dev_accuracy, d_probs = asv_cal_accuracies(dev_protocol_file_path, dev_data_path, Net, device, data_type=data_type, dataset=dataset)
-        d_eer = cal_roc_eer(d_probs, show_plot=False)
-        if d_eer <= best_d_eer[0]:
-            best_d_eer[0] = d_eer
-            best_d_eer[1] = int(epoch)
-
-            eval_accuracy, e_probs = asv_cal_accuracies(eval_protocol_file_path, eval_data_path, Net, device, data_type=data_type, dataset=dataset)
-            e_eer = cal_roc_eer(e_probs, show_plot=False)
-        else:
-            e_eer = .99
-            eval_accuracy = 0.00
-
-        net_str = data_type + '_' + str(epoch) + '_' + 'ASVspoof20' + str(dataset) + '_LA_Loss_' + str(round(total_loss / counter, 4)) + '_dEER_' \
-                            + str(round(d_eer * 100, 2)) + '%_eEER_' + str(round(e_eer * 100, 2)) + '%.pth'
+        net_str = data_type + '_' + str(epoch) + '_LA_Loss_' + str(round(total_loss / counter, 4)) + '.pth'
         torch.save({'epoch': epoch, 'model_state_dict': Net.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'scheduler_state_dict': scheduler.state_dict(),
-                    'loss': loss_per_epoch}, ('./trained_models/' + net_str))
+                    'loss': loss_per_epoch}, (checkpoints_dir.rstrip("/") + "/" + net_str))
 
         elapsed = time.time() - t
 
-        print_str = 'Epoch: {}, Elapsed: {:.2f} mins, lr: {:.3f}e-3, Loss: {:.4f}, d_acc: {:.2f}%, e_acc: {:.2f}%, ' \
-                    'dEER: {:.2f}%, eEER: {:.2f}%, best_dEER: {:.2f}% from epoch {}.'.\
-                    format(epoch, elapsed/60, optimizer.param_groups[0]['lr']*1000, total_loss / counter, dev_accuracy * 100,
-                           eval_accuracy * 100, d_eer * 100, e_eer * 100, best_d_eer[0] * 100, int(best_d_eer[1]))
-        print(print_str)
-        df = pd.DataFrame([print_str])
+        print(net_str)
+        df = pd.DataFrame([net_str])
         df.to_csv(log_path + time_name + '.csv', sep=' ', mode='a', header=False, index=False)
 
         scheduler.step()
 
     f.close()
-    plt.plot(torch.log10(loss_per_epoch))
-    plt.show()
 
     print('End of Program.')
