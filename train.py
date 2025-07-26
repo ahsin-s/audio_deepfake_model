@@ -4,11 +4,9 @@ from torch.utils.data.dataloader import DataLoader
 import torch.optim as optim
 from data import PrepAudioDataset
 import models
-from test import asv_cal_accuracies, cal_roc_eer
 import os
 import sys
 import time
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tqdm
@@ -17,10 +15,10 @@ import argparse
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source_directory", required=True, type=str)
-    parser.add_argument("--labels_filepath", required=True, help="labels space delimited file")
-    parser.add_argument("--label_column_name", required=True, help="Name of the label column in the label file")
-    parser.add_argument("--filename_column_name", required=True, help="Name of the filename column in the label file")
+    parser.add_argument("--source_directory", type=str, required=True)
+    parser.add_argument("--labels_filepath", type=str, required=True, help="labels space delimited file")
+    parser.add_argument("--label_column_name", type=str, required=True, help="Name of the label column in the label file")
+    parser.add_argument("--filename_column_name", type=str, required=True, help="Name of the filename column in the label file")
     parser.add_argument("--checkpoints_dir", default="./models", help="Where to save model checkpoints or load checkpoints from")
     parser.add_argument("--real_label", default='real', help="Name of the 'real' label")
     parser.add_argument("--fake_label", default='fake', help="Name of the 'fake' label")
@@ -33,10 +31,10 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device {device}")
 
-    args = parser.parse_args()
+    args = get_args().parse_args()
 
     source_directory = args.source_directory 
-    labels_filepath = args.labels_filepath,
+    labels_filepath = args.labels_filepath
     label_column_name = args.label_column_name 
     filename_column_name = args.filename_column_name 
     checkpoints_dir = args.checkpoints_dir
@@ -63,7 +61,7 @@ if __name__ == '__main__':
     loss_type = 'WCE'  # {'WCE', 'mixup'}
     
     data_type="timeframe"
-    print('Training data: {}, Date type: {}.'.format(train_data_path, data_type))
+    print('Training data: {}, Date type: {}.'.format(source_directory, data_type))
 
     num_epoch = 100
     loss_per_epoch = torch.zeros(num_epoch,)
@@ -85,10 +83,10 @@ if __name__ == '__main__':
         total_loss = 0
         counter = 0
         print(f"Epoch {epoch} of {num_epoch}")
-        for batch in tqdm.tqdm(train_loader):
+        for batch in train_loader:
             counter += 1
             # forward
-            samples, labels, _ = batch
+            samples, labels = batch
             samples = samples.to(device)
             labels = labels.to(device)
 
@@ -111,6 +109,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
+            print(f"Processed batch {counter}")
 
         loss_per_epoch[epoch] = total_loss/counter
 

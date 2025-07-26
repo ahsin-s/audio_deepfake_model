@@ -29,7 +29,7 @@ class PrepAudioDataset(Dataset):
 
     def __getitem__(self, index):
         filename = self.labels_df.loc[index, self.filename_column_name]
-        label = self.labels_df.iloc[index, self.label_column_name] 
+        label = self.labels_df.loc[index, self.label_column_name] 
         label = self.label_encode(label)
         data_path = self.root_path.rstrip("/") + "/" + filename 
         if os.path.exists(data_path):
@@ -49,16 +49,14 @@ class PrepAudioDataset(Dataset):
         weights = weights / (weights.sum())
         return weights
 
-
-    @staticmethod
-    def label_encode(label):
+    def label_encode(self, label):
         encoding = {
             self.fake_label: 1,
             self.real_label: 0  
         }
         return encoding[label]
-    @staticmethod 
-    def label_decode(integer_label):
+
+    def label_decode(self, integer_label):
         encoding = {
             0: self.real_label,
             1: self.fake_label
