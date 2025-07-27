@@ -44,11 +44,16 @@ class PrepAudioDataset(Dataset):
         label = self.label_encode(label)
         data_path = self.root_path.rstrip("/") + "/" + filename 
         if os.path.exists(data_path):
-            sample, _ = sf.read(data_path)
-            sample = torch.tensor(sample, dtype=torch.float32)
+            try:
+                sample, _ = sf.read(data_path)
+                sample = torch.tensor(sample, dtype=torch.float32)
+                sample = torch.unsqueeze(sample, 0)
+            except Exception as e:
+                print(f"Exception when getting item {index}: \n{e}")
+                sample = None
         else:
-            return None, label
-        sample = torch.unsqueeze(sample, 0)
+            sample = None
+        
         return sample, label 
 
     
@@ -73,3 +78,19 @@ class PrepAudioDataset(Dataset):
             1: self.fake_label
         }
         return encoding[integer_label]
+
+
+
+class MultipleDatasetsLoader(Dataset):
+    def __init__(loaders: List[Dataset]):
+        self.loaders = loaders 
+
+
+    def __len__(self):
+        total_length = 0 
+        for loader in self.loaders:
+            total_length += len(loader)
+        return total_length 
+    
+    def __getitem__(self, index):
+        raise NotImplementedError
