@@ -44,7 +44,7 @@ class PrepAudioDataset(Dataset):
         filename = self.labels_df.loc[index, self.filename_column_name]
         label = self.labels_df.loc[index, self.label_column_name] 
         label = self.label_encode(label)
-        data_path = self.root_path.rstrip("/") + "/" + filename 
+        data_path = os.path.join(self.root_path, filename)
         if os.path.exists(data_path):
             try:
                 sample, _ = sf.read(data_path)
