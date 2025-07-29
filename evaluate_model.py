@@ -13,6 +13,7 @@ from sklearn import metrics
 
 from data import PrepAudioDataset, handle_bad_samples_collate_fn
 from models import SSDNet1D
+from helpers import plot_confusion_matrix
 
 
 def evaluate(model_checkpoint_path: str,  dataset_loader: DataLoader):
@@ -145,4 +146,6 @@ if __name__ == "__main__":
         f.write(json.dumps(metrics_dict))
 
     print(f"metrics saved to {output_prefix}")
+
+    plot_confusion_matrix(tp, fp, fn, tn, ["real", "fake"], "Confusion Matrix", os.path.join(output_prefix, "confusion_matrix.png"))
     print("Evaluation complete")
