@@ -20,6 +20,7 @@ def get_args():
     parser.add_argument("--label_column_name", type=str, required=True, help="Name of the label column in the label file")
     parser.add_argument("--filename_column_name", type=str, required=True, help="Name of the filename column in the label file")
     parser.add_argument("--checkpoints_dir", default="./models", help="Where to save model checkpoints or load checkpoints from")
+    parser.add_argument("--model_checkpoint", default='', help="Specify to load model weights and continue training from the saved state")
     parser.add_argument("--real_label", default='real', help="Name of the 'real' label")
     parser.add_argument("--fake_label", default='fake', help="Name of the 'fake' label")
     parser.add_argument("--batch_size", default=64, help="Batch size used for loading data")
@@ -38,6 +39,7 @@ if __name__ == '__main__':
     label_column_name = args.label_column_name 
     filename_column_name = args.filename_column_name 
     checkpoints_dir = args.checkpoints_dir
+    model_checkpoint = args.model_checkpoint
     real_label = args.real_label 
     fake_label = args.fake_label 
     batch_size=args.batch_size
@@ -51,6 +53,13 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, collate_fn=handle_bad_samples_collate_fn)
 
     Net = models.SSDNet1D()   # Res-TSSDNet
+    saved_state_epoch = 0
+    if model_checkpoint:
+        # load the saved state
+        print(f"Initiating model from saved state at {model_checkpoint}")
+        checkpoint = torch.load(model_checkpoint) 
+        Net.load_state_dict(checkpoint['model_state_dict'])
+        saved_state_epoch = checkpoint['epoch'] + 1 # adding 1 because the saved state happens at the end of the epoch
     Net = Net.to(device)
 
     num_total_learnable_params = sum(i.numel() for i in Net.parameters() if i.requires_grad)
@@ -77,7 +86,7 @@ if __name__ == '__main__':
     f = open(log_path + time_name + '.csv', 'w+')
 
     print("Starting training")
-    for epoch in range(num_epoch):
+    for epoch in range(saved_state_epoch, num_epoch):
         Net.train()
         t = time.time()
         total_loss = 0
